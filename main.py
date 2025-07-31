@@ -13,7 +13,6 @@ WHITE = (240, 217, 181)
 BROWN = (181, 136, 99)
 HIGHLIGHT = (0, 255, 0)
 
-# Load piece images
 IMAGES = {}
 PIECES = ['wp', 'wr', 'wn', 'wb', 'wq', 'wk',
           'bp', 'br', 'bn', 'bb', 'bq', 'bk']
@@ -39,12 +38,17 @@ def create_board():
     ]
 
 
-def draw_board(win):
+def draw_board(win, legal_moves):
     for row in range(ROWS):
         for col in range(COLS):
             color = WHITE if (row + col) % 2 == 0 else BROWN
             pygame.draw.rect(win, color, (col*SQUARE_SIZE,
                              row*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
+
+    for move in legal_moves:
+        r, c = move
+        pygame.draw.rect(win, HIGHLIGHT, (c*SQUARE_SIZE,
+                         r*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE), 5)
 
 
 def draw_pieces(win, board):
@@ -68,24 +72,20 @@ def is_valid_move(piece, start, end, board):
     p_type = piece[1]
 
     if target != "--" and target[0] == color:
-        return False  # Can't capture own piece
+        return False
 
-    # PAWN
     if p_type == "p":
         direction = -1 if color == "w" else 1
         start_row = 6 if color == "w" else 1
-        # Move forward
         if dc == 0:
             if dr == direction and board[er][ec] == "--":
                 return True
             if sr == start_row and dr == 2 * direction and board[er][ec] == "--" and board[sr + direction][sc] == "--":
                 return True
-        # Capture
         if abs(dc) == 1 and dr == direction and board[er][ec] != "--" and board[er][ec][0] != color:
             return True
         return False
 
-    # ROOK
     elif p_type == "r":
         if sr == er:
             step = 1 if ec > sc else -1
@@ -101,11 +101,9 @@ def is_valid_move(piece, start, end, board):
             return True
         return False
 
-    # KNIGHT
     elif p_type == "n":
         return (abs(dr), abs(dc)) in [(2, 1), (1, 2)]
 
-    # BISHOP
     elif p_type == "b":
         if abs(dr) == abs(dc):
             step_r = 1 if er > sr else -1
@@ -116,15 +114,22 @@ def is_valid_move(piece, start, end, board):
             return True
         return False
 
-    # QUEEN
     elif p_type == "q":
         return is_valid_move(color + "r", start, end, board) or is_valid_move(color + "b", start, end, board)
 
-    # KING
     elif p_type == "k":
         return max(abs(dr), abs(dc)) == 1
 
     return False
+
+
+def get_legal_moves(piece, pos, board):
+    moves = []
+    for r in range(ROWS):
+        for c in range(COLS):
+            if is_valid_move(piece, pos, (r, c), board):
+                moves.append((r, c))
+    return moves
 
 
 def main():
@@ -136,14 +141,14 @@ def main():
     load_images()
 
     selected = None
-    turn = 'w'  # w for white, b for black
+    legal_moves = []
+    turn = 'w'
 
     running = True
     while running:
         clock.tick(60)
-        draw_board(win)
+        draw_board(win, legal_moves)
         draw_pieces(win, board)
-
         pygame.display.flip()
 
         for event in pygame.event.get():
@@ -158,16 +163,17 @@ def main():
 
                 if selected:
                     piece = board[selected[0]][selected[1]]
-                    if is_valid_move(piece, selected, clicked, board):
-                        # Move the piece
+                    if clicked in legal_moves:
                         board[clicked[0]][clicked[1]] = piece
                         board[selected[0]][selected[1]] = "--"
                         turn = 'b' if turn == 'w' else 'w'
                     selected = None
+                    legal_moves = []
                 else:
                     piece = board[row][col]
                     if piece != "--" and piece[0] == turn:
                         selected = (row, col)
+                        legal_moves = get_legal_moves(piece, selected, board)
 
     pygame.quit()
 
