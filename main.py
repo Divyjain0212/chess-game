@@ -1,181 +1,118 @@
+# Full `main.py` file with Check and Checkmate detection
+
 import pygame
-import os
+from chess_engine import GameState, Move  # You must have your logic separated for maintainability
 
-pygame.init()
-
-# Constants
-WIDTH, HEIGHT = 640, 640
-ROWS = 8
-COLS = 8
-SQUARE_SIZE = WIDTH // COLS
-
-WHITE = (240, 217, 181)
-BROWN = (181, 136, 99)
-HIGHLIGHT = (0, 255, 0)
-
+WIDTH, HEIGHT = 512, 512
+DIMENSION = 8
+SQ_SIZE = HEIGHT // DIMENSION
+MAX_FPS = 15
 IMAGES = {}
-PIECES = ['wp', 'wr', 'wn', 'wb', 'wq', 'wk',
-          'bp', 'br', 'bn', 'bb', 'bq', 'bk']
 
-
+# Load images
 def load_images():
-    for piece in PIECES:
-        path = os.path.join('images', f'{piece}.png')
-        IMAGES[piece] = pygame.transform.scale(
-            pygame.image.load(path), (SQUARE_SIZE, SQUARE_SIZE))
+    pieces = ["wp", "wr", "wn", "wb", "wq", "wk", "bp", "br", "bn", "bb", "bq", "bk"]
+    for piece in pieces:
+        IMAGES[piece] = pygame.transform.scale(pygame.image.load("images/" + piece + ".png"), (SQ_SIZE, SQ_SIZE))
 
-
-def create_board():
-    return [
-        ["br", "bn", "bb", "bq", "bk", "bb", "bn", "br"],
-        ["bp"] * 8,
-        ["--"] * 8,
-        ["--"] * 8,
-        ["--"] * 8,
-        ["--"] * 8,
-        ["wp"] * 8,
-        ["wr", "wn", "wb", "wq", "wk", "wb", "wn", "wr"]
-    ]
-
-
-def draw_board(win, legal_moves):
-    for row in range(ROWS):
-        for col in range(COLS):
-            color = WHITE if (row + col) % 2 == 0 else BROWN
-            pygame.draw.rect(win, color, (col*SQUARE_SIZE,
-                             row*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE))
-
-    for move in legal_moves:
-        r, c = move
-        pygame.draw.rect(win, HIGHLIGHT, (c*SQUARE_SIZE,
-                         r*SQUARE_SIZE, SQUARE_SIZE, SQUARE_SIZE), 5)
-
-
-def draw_pieces(win, board):
-    for row in range(ROWS):
-        for col in range(COLS):
-            piece = board[row][col]
-            if piece != "--":
-                win.blit(IMAGES[piece], (col*SQUARE_SIZE, row*SQUARE_SIZE))
-
-
-def is_valid_move(piece, start, end, board):
-    sr, sc = start
-    er, ec = end
-    dr, dc = er - sr, ec - sc
-    target = board[er][ec]
-
-    if piece == "--":
-        return False
-
-    color = piece[0]
-    p_type = piece[1]
-
-    if target != "--" and target[0] == color:
-        return False
-
-    if p_type == "p":
-        direction = -1 if color == "w" else 1
-        start_row = 6 if color == "w" else 1
-        if dc == 0:
-            if dr == direction and board[er][ec] == "--":
-                return True
-            if sr == start_row and dr == 2 * direction and board[er][ec] == "--" and board[sr + direction][sc] == "--":
-                return True
-        if abs(dc) == 1 and dr == direction and board[er][ec] != "--" and board[er][ec][0] != color:
-            return True
-        return False
-
-    elif p_type == "r":
-        if sr == er:
-            step = 1 if ec > sc else -1
-            for c in range(sc + step, ec, step):
-                if board[sr][c] != "--":
-                    return False
-            return True
-        elif sc == ec:
-            step = 1 if er > sr else -1
-            for r in range(sr + step, er, step):
-                if board[r][sc] != "--":
-                    return False
-            return True
-        return False
-
-    elif p_type == "n":
-        return (abs(dr), abs(dc)) in [(2, 1), (1, 2)]
-
-    elif p_type == "b":
-        if abs(dr) == abs(dc):
-            step_r = 1 if er > sr else -1
-            step_c = 1 if ec > sc else -1
-            for i in range(1, abs(dr)):
-                if board[sr + i * step_r][sc + i * step_c] != "--":
-                    return False
-            return True
-        return False
-
-    elif p_type == "q":
-        return is_valid_move(color + "r", start, end, board) or is_valid_move(color + "b", start, end, board)
-
-    elif p_type == "k":
-        return max(abs(dr), abs(dc)) == 1
-
-    return False
-
-
-def get_legal_moves(piece, pos, board):
-    moves = []
-    for r in range(ROWS):
-        for c in range(COLS):
-            if is_valid_move(piece, pos, (r, c), board):
-                moves.append((r, c))
-    return moves
-
+# Main driver
 
 def main():
-    win = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("Chess by Divy")
+    pygame.init()
+    screen = pygame.display.set_mode((WIDTH, HEIGHT))
     clock = pygame.time.Clock()
-
-    board = create_board()
+    screen.fill(pygame.Color("white"))
+    gs = GameState()
+    valid_moves = gs.get_valid_moves()
+    move_made = False
     load_images()
-
-    selected = None
-    legal_moves = []
-    turn = 'w'
-
     running = True
-    while running:
-        clock.tick(60)
-        draw_board(win, legal_moves)
-        draw_pieces(win, board)
-        pygame.display.flip()
+    sq_selected = ()
+    player_clicks = []
 
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
+    while running:
+        for e in pygame.event.get():
+            if e.type == pygame.QUIT:
                 running = False
 
-            elif event.type == pygame.MOUSEBUTTONDOWN:
-                pos = pygame.mouse.get_pos()
-                row = pos[1] // SQUARE_SIZE
-                col = pos[0] // SQUARE_SIZE
-                clicked = (row, col)
-
-                if selected:
-                    piece = board[selected[0]][selected[1]]
-                    if clicked in legal_moves:
-                        board[clicked[0]][clicked[1]] = piece
-                        board[selected[0]][selected[1]] = "--"
-                        turn = 'b' if turn == 'w' else 'w'
-                    selected = None
-                    legal_moves = []
+            elif e.type == pygame.MOUSEBUTTONDOWN:
+                location = pygame.mouse.get_pos()
+                col = location[0] // SQ_SIZE
+                row = location[1] // SQ_SIZE
+                if sq_selected == (row, col):
+                    sq_selected = ()
+                    player_clicks = []
                 else:
-                    piece = board[row][col]
-                    if piece != "--" and piece[0] == turn:
-                        selected = (row, col)
-                        legal_moves = get_legal_moves(piece, selected, board)
+                    sq_selected = (row, col)
+                    player_clicks.append(sq_selected)
+                if len(player_clicks) == 2:
+                    move = Move(player_clicks[0], player_clicks[1], gs.board)
+                    for i in range(len(valid_moves)):
+                        if move == valid_moves[i]:
+                            gs.make_move(valid_moves[i])
+                            move_made = True
+                            sq_selected = ()
+                            player_clicks = []
+                    if not move_made:
+                        player_clicks = [sq_selected]
 
-    pygame.quit()
+            elif e.type == pygame.KEYDOWN:
+                if e.key == pygame.K_z:
+                    gs.undo_move()
+                    move_made = True
+
+        if move_made:
+            valid_moves = gs.get_valid_moves()
+            move_made = False
+
+        draw_game_state(screen, gs, valid_moves, sq_selected)
+
+        # Check or Checkmate
+        if gs.in_checkmate:
+            pygame.display.set_caption("Checkmate! Game Over")
+        elif gs.in_check:
+            pygame.display.set_caption("Check!")
+        else:
+            pygame.display.set_caption("Chess")
+
+        clock.tick(MAX_FPS)
+        pygame.display.flip()
+
+
+def draw_game_state(screen, gs, valid_moves, sq_selected):
+    draw_board(screen)
+    highlight_squares(screen, gs, valid_moves, sq_selected)
+    draw_pieces(screen, gs.board)
+
+
+def draw_board(screen):
+    colors = [pygame.Color("white"), pygame.Color("gray")]
+    for r in range(DIMENSION):
+        for c in range(DIMENSION):
+            color = colors[(r + c) % 2]
+            pygame.draw.rect(screen, color, pygame.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
+
+
+def highlight_squares(screen, gs, valid_moves, sq_selected):
+    if sq_selected != ():
+        r, c = sq_selected
+        if gs.board[r][c][0] == ("w" if gs.white_to_move else "b"):
+            s = pygame.Surface((SQ_SIZE, SQ_SIZE))
+            s.set_alpha(100)
+            s.fill(pygame.Color("blue"))
+            screen.blit(s, (c * SQ_SIZE, r * SQ_SIZE))
+            s.fill(pygame.Color("green"))
+            for move in valid_moves:
+                if move.start_row == r and move.start_col == c:
+                    screen.blit(s, (move.end_col * SQ_SIZE, move.end_row * SQ_SIZE))
+
+
+def draw_pieces(screen, board):
+    for r in range(DIMENSION):
+        for c in range(DIMENSION):
+            piece = board[r][c]
+            if piece != "--":
+                screen.blit(IMAGES[piece], pygame.Rect(c * SQ_SIZE, r * SQ_SIZE, SQ_SIZE, SQ_SIZE))
 
 
 if __name__ == "__main__":
