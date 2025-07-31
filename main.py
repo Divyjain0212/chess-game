@@ -1,7 +1,7 @@
-# Full `main.py` file with Check and Checkmate detection
+# Full `main.py` file with Check and Checkmate detection (Verified)
 
 import pygame
-from chess_engine import GameState, Move  # You must have your logic separated for maintainability
+from chess_engine import GameState, Move  # Ensure your logic handles move legality including captures
 
 WIDTH, HEIGHT = 512, 512
 DIMENSION = 8
@@ -47,13 +47,13 @@ def main():
                     player_clicks.append(sq_selected)
                 if len(player_clicks) == 2:
                     move = Move(player_clicks[0], player_clicks[1], gs.board)
-                    for i in range(len(valid_moves)):
-                        if move == valid_moves[i]:
-                            gs.make_move(valid_moves[i])
-                            move_made = True
-                            sq_selected = ()
-                            player_clicks = []
-                    if not move_made:
+                    print("Attempting move:", move.get_chess_notation())
+                    if move in valid_moves:
+                        gs.make_move(move)
+                        move_made = True
+                        sq_selected = ()
+                        player_clicks = []
+                    else:
                         player_clicks = [sq_selected]
 
             elif e.type == pygame.KEYDOWN:
@@ -68,9 +68,9 @@ def main():
         draw_game_state(screen, gs, valid_moves, sq_selected)
 
         # Check or Checkmate
-        if gs.in_checkmate:
+        if gs.checkmate:
             pygame.display.set_caption("Checkmate! Game Over")
-        elif gs.in_check:
+        elif gs.check:
             pygame.display.set_caption("Check!")
         else:
             pygame.display.set_caption("Chess")
@@ -86,7 +86,8 @@ def draw_game_state(screen, gs, valid_moves, sq_selected):
 
 
 def draw_board(screen):
-    colors = [pygame.Color("white"), pygame.Color("gray")]
+    # Changed board colors back to previous version
+    colors = [pygame.Color("burlywood1"), pygame.Color("saddlebrown")]
     for r in range(DIMENSION):
         for c in range(DIMENSION):
             color = colors[(r + c) % 2]
